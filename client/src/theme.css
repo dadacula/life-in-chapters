@@ -32,3 +32,125 @@
 @media(max-width:560px){.elder-home{justify-content:flex-start;padding-top:28px}.elder-home h1{font-size:29px;margin:12px 0 18px}.elder-date{width:100%}.elder-date label{font-size:16px}.elder-date input,.elder-date button{min-height:54px;font-size:17px}.elder-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.elder-actions button{min-height:94px;flex-direction:column;font-size:19px}.elder-note{padding:16px}.elder-note>label,.elder-note textarea{font-size:18px}.quick-title input{font-size:17px}}
 
 .review-actions{display:grid;gap:8px;justify-items:start}.review-repository{display:inline-flex;text-decoration:none}.review-repository>span{display:grid;text-align:left;line-height:1.15}.review-repository small{margin-top:4px;font-size:10px;font-weight:500;opacity:.82}.review-help{max-width:340px;color:var(--dim);line-height:1.5}.settings-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-start}@media(max-width:560px){.review-actions{width:100%;justify-items:stretch}.review-repository{justify-content:center}.review-help{max-width:none}.settings-actions,.settings-actions button{width:100%}}
+
+/* Journal shell: one scale, one ink, one accent. Elder targets are unchanged. */
+:root {
+  --bg:#f6f3ec; --surface:#f6f3ec; --surface-strong:#f6f3ec;
+  --text:#1c1916; --dim:color-mix(in srgb,var(--text) 58%,transparent);
+  --border:color-mix(in srgb,var(--text) 14%,transparent);
+  --accent:#8f5340; --accent-soft:transparent;
+  --sage:var(--dim); --blue:var(--dim);
+  --radius:0; --shadow:none;
+  --type-meta:13px; --type-body:16px; --type-entry:22px; --type-page:30px; --type-sheet:28px;
+  --leading:1.7; --leading-title:1.35;
+  --rhythm:32px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#141311; --surface:#141311; --surface-strong:#141311;
+    --text:#f3efe6; --dim:color-mix(in srgb,var(--text) 62%,transparent);
+    --border:color-mix(in srgb,var(--text) 16%,transparent);
+    --accent:#d7a08c; --accent-soft:transparent; --sage:var(--dim); --blue:var(--dim);
+  }
+}
+body{font-size:var(--type-body);line-height:var(--leading);background:var(--bg);color:var(--text)}
+.app{background:var(--bg)}
+.topbar{background:var(--bg);border-bottom:1px solid var(--border);padding:calc(12px + env(safe-area-inset-top)) 20px 12px;gap:12px}
+.avatar,.portrait{background:transparent;color:var(--text);border:1px solid var(--border);font-weight:500}
+.avatar{width:32px;height:32px;font-size:14px}
+.portrait{width:36px;height:36px;font-size:15px}
+.person-switch label>span{font-size:var(--type-meta);line-height:1.4}
+.person-switch select{font-weight:500;font-size:var(--type-body)}
+.elder-toggle{background:transparent;border-color:var(--border);border-radius:999px;font-size:var(--type-meta);font-weight:500;padding:8px 12px}
+.top-actions .icon-btn{color:var(--dim);background:transparent}
+.top-actions .icon-btn.active{color:var(--text);background:transparent}
+.write-btn{border-radius:999px;min-height:36px;padding:0 16px;font-size:var(--type-meta);font-weight:650}
+.demo-banner{max-width:640px;margin:0 auto;padding:14px 24px;background:transparent;border:0;border-bottom:1px solid var(--border)}
+.demo-banner b{color:var(--text);font-family:inherit;font-weight:650;font-size:var(--type-meta)}
+.demo-banner span,.demo-banner button{font-size:var(--type-meta);color:var(--dim)}
+.content{max-width:640px;padding:48px 24px 112px}
+.page-intro{margin:0 0 48px;align-items:baseline}
+.page-intro h1,.river-empty h1,.empty-state h2,.chapter-title h2,.settings-group h2,.sheet-head h2{font-family:"Noto Serif SC","Songti SC",serif;font-weight:500;letter-spacing:0;color:var(--text)}
+.page-intro h1{font-size:var(--type-page);line-height:var(--leading-title)}
+.page-intro>span,.result-count,.chapter-title span,.year-group h2 small{font-size:var(--type-meta);color:var(--dim);line-height:1.5}
+.timeline:before{display:none}
+.year-group{display:block;padding:0;margin:56px 0 0}
+.year-group:first-child{margin-top:0}
+.year-group h2{position:static;margin:0 0 4px;font-family:system-ui,sans-serif;font-size:var(--type-meta);font-weight:500;line-height:1.5;color:var(--dim)}
+.event-card{display:flex;align-items:flex-start;gap:20px;min-height:0;padding:28px 0;border-bottom:1px solid var(--border);background:transparent}
+.event-card .dot{display:none}
+.event-copy{display:grid;gap:6px}
+.event-card time{font-size:var(--type-meta);line-height:1.5;color:var(--dim);font-variant-numeric:tabular-nums}
+.event-card h3{font-size:var(--type-entry);line-height:var(--leading-title);font-weight:500}
+.event-card p{margin:0;font-size:var(--type-body);line-height:var(--leading);color:var(--dim);-webkit-line-clamp:1}
+.event-foot{margin-top:2px;gap:12px}
+.significance,.event-card small,.media-count,.event-foot{font-size:var(--type-meta);line-height:1.5;color:var(--dim);font-weight:400}
+.tag,.tag-不美好,.tag-美好,.tag-转折,.tag-日常{background:transparent;color:var(--dim);border-radius:0;padding:0}
+.event-card img,.event-card>.photo-loading,.event-card>.photo-unavailable,.event-photo{width:72px;height:72px;border:0;border-radius:2px;box-shadow:none;background:color-mix(in srgb,var(--text) 6%,transparent)}
+.on-this-day{padding:0 0 28px;margin:0 0 8px;border:0;border-bottom:1px solid var(--border);background:transparent}
+.on-this-day p{font-size:var(--type-meta);color:var(--dim);letter-spacing:0;margin:0 0 6px}
+.on-this-day button{font-size:var(--type-entry);font-weight:500;line-height:var(--leading-title)}
+.chapter-list{border-top:0}
+.chapter-section{padding:36px 0;gap:16px;border-bottom-color:var(--border)}
+.chapter-number{font-family:system-ui,sans-serif;font-size:var(--type-meta);color:var(--dim)}
+.chapter-title h2{font-size:var(--type-entry);line-height:var(--leading-title)}
+.chapter-event{padding:16px 0;border-top:1px solid var(--border);gap:12px}
+.chapter-event time{font-size:var(--type-meta)}
+.chapter-event b{font-family:"Noto Serif SC","Songti SC",serif;font-weight:500;font-size:17px;line-height:var(--leading-title)}
+.inline-editor button,.chapter-rename button{background:transparent;color:var(--text);border:0;font-weight:650}
+.people-list article{padding:22px 0}
+.person-main b{font-family:"Noto Serif SC","Songti SC",serif;font-size:20px;font-weight:500;line-height:var(--leading-title)}
+.person-main small,.person-main i,.person-actions button{font-size:var(--type-meta);color:var(--dim)}
+.demo-chip{background:transparent;color:var(--dim);border-radius:0;padding:0;margin-left:8px;font:500 13px system-ui}
+.search-box{background:transparent;border:0;border-bottom:1px solid var(--border);border-radius:0;padding:10px 0 12px}
+.filter-row{gap:18px;margin:20px 0 8px}
+.filter-row button{border:0;border-radius:0;background:transparent;color:var(--dim);padding:6px 0;font-size:var(--type-meta)}
+.filter-row button.active{background:transparent;border:0;color:var(--text);font-weight:650}
+.search-results>button{padding:20px 0;border-bottom-color:var(--border)}
+.search-results b{font-family:"Noto Serif SC","Songti SC",serif;font-weight:500;font-size:18px}
+.settings-group{padding:32px 0;gap:12px;border-top-color:var(--border)}
+.settings-group h2{font-size:22px;line-height:var(--leading-title);margin:0}
+.settings-group p{font-size:var(--type-body);line-height:var(--leading)}
+.secondary{background:transparent;border-color:var(--border);border-radius:999px;font-weight:500;min-height:40px}
+.primary{border-radius:999px}
+.bottom-nav{background:var(--bg);border-top:1px solid var(--border);padding:2px 8px calc(4px + env(safe-area-inset-bottom));backdrop-filter:none}
+.bottom-nav button{font-size:12px;font-weight:500;min-height:48px;color:var(--dim);background:transparent}
+.bottom-nav button.active{color:var(--accent)}
+.sheet{background:var(--bg);box-shadow:none;border-radius:18px 18px 0 0}
+.sheet-head{background:var(--bg);border-bottom-color:var(--border)}
+.sheet-head h2{font-size:18px}
+.form{padding:8px 22px 28px;gap:22px}
+.form label,.form fieldset{font-size:var(--type-meta);font-weight:500;line-height:1.5;gap:8px}
+.simple-event-form{gap:0}
+.quick-promise{margin:4px 0 28px;font-size:var(--type-body);line-height:var(--leading);color:var(--dim)}
+.quick-title{font-size:var(--type-meta)!important;font-weight:500;color:var(--dim);margin:0}
+.quick-title input{min-height:76px;padding:4px 0 12px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;font-family:"Noto Serif SC","Songti SC",serif;font-size:var(--type-sheet);font-weight:500;line-height:var(--leading-title);box-shadow:none}
+.quick-date{margin-top:18px;color:var(--dim)}
+.quick-date input{min-height:44px;padding:8px 0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;font-size:var(--type-body);line-height:var(--leading);box-shadow:none}
+.quick-title input:focus,.quick-date input:focus{border-color:var(--text);box-shadow:none}
+.more-toggle{margin-top:8px;padding:22px 0;font-weight:500;border-color:var(--border)}
+.more-toggle>span{font-weight:500}
+.simple-event-form .save-event{margin-top:28px}
+.detail-date{color:var(--dim);font-family:"Noto Serif SC","Songti SC",serif;font-size:var(--type-meta);gap:12px}
+.detail-date .significance{color:var(--dim)}
+.prose{font-size:18px;line-height:1.85}
+.tag-picker button{border-radius:999px;background:transparent;color:var(--dim)}
+.tag-picker button.active{background:transparent;border-color:var(--text);color:var(--text)}
+.source-note{display:none}
+@media(max-width:560px){
+  .content{padding:36px 20px 104px}
+  .page-intro h1{font-size:26px}
+  .year-group{display:block;padding-left:0;margin-top:40px}
+  .year-group h2{margin:0 0 4px;font-size:var(--type-meta)}
+  .event-card{padding:24px 0}
+  .event-card h3{font-size:20px;line-height:1.35}
+  .event-card p{font-size:15px;line-height:1.65}
+  .event-card img,.event-card>.photo-loading,.event-card>.photo-unavailable{width:64px;height:64px}
+  .quick-title input{font-size:24px;min-height:68px}
+}
+.elder-note button,.elder-actions button{border-radius:14px}
+.elder-note .secondary{background:var(--surface);min-height:52px}
+.elder-actions button{min-height:150px;background:var(--surface)}
+.voice-elder>button{background:var(--accent);border-color:var(--accent);color:white}
+@media(max-width:560px){.elder-actions button{min-height:94px}.voice-elder>button{min-height:94px}}
+@media(prefers-reduced-motion:reduce){.sheet{animation:none}}
