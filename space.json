@@ -1,0 +1,8 @@
+{
+  "entry": "client/dist/index.html",
+  "managedCronJobs": [],
+  "name": "一生 · 人生大事记",
+  "platformVersion": 24,
+  "runtime": "typescript",
+  "slug": "space-4"
+}
