@@ -1,5 +1,6 @@
 import { defineAction, z, type ActionsModule } from "@hatch/space-sdk";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { archiveFileSchema, archiveLinkError, isValidEventDate, peopleIdsToReplace, resolveSavedDate } from "./archive-file";
 import * as schema from "./schema";
 
 const significance = z.enum(["美好", "不美好", "里程碑", "转折", "日常"]);
@@ -63,15 +64,8 @@ function uploadExtension(item: z.infer<typeof upload>): string {
   return "m4a";
 }
 
-function isValidEventDate(value: string, mode: "exact" | "year"): boolean {
-  if (mode === "year") return /^\d{4}$/.test(value) && Number(value) >= 1000 && Number(value) <= 9999;
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return false;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return year >= 1000 && year <= 9999 && parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+async function deleteBlobQuietly(blobs: { delete: (key: string) => Promise<unknown> }, key: string) {
+  try { await blobs.delete(key); } catch { /* The record no longer points at this blob. */ }
 }
 
 export const Actions = {
@@ -143,15 +137,22 @@ export const Actions = {
       const existing = await db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.isDemo, true)).limit(1);
       if (existing.length > 0) return { ok: true, added: false, peopleAdded: 0, eventsAdded: 0 };
 
+      const createdPersonIds: number[] = [];
+      let eventsAdded = 0;
+      try {
       const now = new Date();
       const selfRows = await db.insert(schema.people).values({
         name: "林默", relationship: "自己", birthDate: "1989-06-18", bio: "虚构示例人物 · 喜欢把重要的日子写下来。", isDemo: true, updatedAt: now,
       }).returning({ id: schema.people.id });
+      const self = selfRows[0];
+      if (!self) throw new Error("示例人生没有铺开，请重试。");
+      createdPersonIds.push(self.id);
       const fatherRows = await db.insert(schema.people).values({
         name: "林建国", relationship: "父亲", birthDate: "1961-02-03", bio: "虚构示例人物 · 木匠退休后开始四处旅行。", isDemo: true, updatedAt: now,
       }).returning({ id: schema.people.id });
-      const self = selfRows[0]; const father = fatherRows[0];
-      if (!self || !father) throw new Error("示例人物未能创建，请重试");
+      const father = fatherRows[0];
+      if (!father) throw new Error("示例人生没有铺开，请重试。");
+      createdPersonIds.push(father.id);
 
       const chapterTitles = {
         self: ["童年", "求学", "启程", "成家", "成为父亲"],
@@ -180,17 +181,28 @@ export const Actions = {
 
       for (const event of demoEvents) {
         const personId = event.person === "self" ? self.id : father.id;
+        const resolvedChapterId = chapterId(personId, event.chapter);
+        if (!resolvedChapterId) throw new Error("示例人生没有完整铺开，请重试。");
         const inserted = await db.insert(schema.events).values({
-          personId, chapterId: chapterId(personId, event.chapter), title: event.title, dateValue: event.dateValue, dateMode: event.dateMode,
+          personId, chapterId: resolvedChapterId, title: event.title, dateValue: event.dateValue, dateMode: event.dateMode,
           location: event.location, significance: event.significance, body: event.body, customTags: JSON.stringify(event.customTags), createdAt: now, updatedAt: now,
         }).returning({ id: schema.events.id });
         const row = inserted[0];
-        if (row && event.relatedTo) {
+        if (!row) throw new Error("示例人生没有完整铺开，请重试。");
+        if (event.relatedTo) {
           await db.insert(schema.eventPeople).values({ eventId: row.id, personId: event.relatedTo === "self" ? self.id : father.id });
         }
       }
+      eventsAdded = demoEvents.length;
+      } catch (error) {
+        if (createdPersonIds.length > 0) {
+          try { await db.delete(schema.people).where(inArray(schema.people.id, createdPersonIds)); } catch { /* Report the original seed failure. */ }
+        }
+        if (error instanceof Error && error.message.includes("示例")) throw error;
+        throw new Error("示例人生没有铺开，请重试。");
+      }
       ctx.invalidateQueries();
-      return { ok: true, added: true, peopleAdded: 2, eventsAdded: demoEvents.length };
+      return { ok: true, added: true, peopleAdded: 2, eventsAdded };
     },
   }),
 
@@ -210,12 +222,30 @@ export const Actions = {
         { title: "退休后的第一趟远行", prompt: "一幅高分辨率写实插画，虚构的中国退休木匠清晨独自走在西安古城墙上，秋日薄雾，安静克制的纪实胶片色调，人物不看镜头，无文字、无标志，横向构图" },
       ];
       let added = 0; let skipped = 0;
+      const created: { id: number; blobKey: string }[] = [];
+      try {
       for (const plan of mediaPlans) {
         const event = demoEvents.find((item) => item.title === plan.title);
         if (!event || eventIdsWithMedia.has(event.id)) { skipped += 1; continue; }
         const media = await ctx.tool.generate_media(plan.prompt, { orientation: "landscape" });
-        await db.insert(schema.attachments).values({ eventId: event.id, kind: "photo", blobKey: media.blobKey, mimeType: media.contentType, fileName: `${plan.title}-示例插图.jpg` });
-        eventIdsWithMedia.add(event.id); added += 1;
+        try {
+          const inserted = await db.insert(schema.attachments).values({ eventId: event.id, kind: "photo", blobKey: media.blobKey, mimeType: media.contentType, fileName: `${plan.title}-示例插图.jpg` }).returning({ id: schema.attachments.id });
+          const row = inserted[0];
+          if (!row) throw new Error("示例照片没有写入，请重试。");
+          created.push({ id: row.id, blobKey: media.blobKey });
+          eventIdsWithMedia.add(event.id); added += 1;
+        } catch (error) {
+          if (!created.some((item) => item.blobKey === media.blobKey)) await deleteBlobQuietly(ctx.blobs, media.blobKey);
+          throw error;
+        }
+      }
+      } catch (error) {
+        if (created.length > 0) {
+          try { await db.delete(schema.attachments).where(inArray(schema.attachments.id, created.map((item) => item.id))); } catch { /* Still remove the generated files. */ }
+          await Promise.all(created.map((item) => deleteBlobQuietly(ctx.blobs, item.blobKey)));
+        }
+        if (error instanceof Error && error.message.includes("示例")) throw error;
+        throw new Error("示例照片没有生成，请重试。");
       }
       ctx.invalidateQueries();
       return { ok: true, added, skipped };
@@ -231,11 +261,9 @@ export const Actions = {
       if (personIds.length === 0) return { ok: true, peopleRemoved: 0, eventsRemoved: 0 };
       const demoEvents = await db.select({ id: schema.events.id }).from(schema.events).where(inArray(schema.events.personId, personIds));
       const eventIds = demoEvents.map((event) => event.id);
-      if (eventIds.length > 0) {
-        const media = await db.select({ blobKey: schema.attachments.blobKey }).from(schema.attachments).where(inArray(schema.attachments.eventId, eventIds));
-        await Promise.all(media.map((item) => ctx.blobs.delete(item.blobKey)));
-      }
+      const media = eventIds.length === 0 ? [] : await db.select({ blobKey: schema.attachments.blobKey }).from(schema.attachments).where(inArray(schema.attachments.eventId, eventIds));
       await db.delete(schema.people).where(inArray(schema.people.id, personIds));
+      await Promise.all(media.map((item) => deleteBlobQuietly(ctx.blobs, item.blobKey)));
       ctx.invalidateQueries();
       return { ok: true, peopleRemoved: personIds.length, eventsRemoved: eventIds.length };
     },
@@ -295,34 +323,38 @@ export const Actions = {
     request: z.object({
       id: z.number().int().positive().optional(), personId: z.number().int().positive(), chapterId: z.number().int().positive().nullable(), title: z.string().trim().min(1).max(160),
       dateValue: z.string().min(4).max(10), dateMode: z.enum(["exact", "year"]), dateChangeConfirmed: z.boolean().default(false), expectedUpdatedAt: z.string().datetime().optional(), location: z.string().max(160).default(""), significance,
-      body: z.string().max(20000).default(""), customTags: z.array(z.string().trim().min(1).max(30)).max(20).default([]), relatedPersonIds: z.array(z.number().int().positive()).max(30).default([]), uploads: z.array(upload).max(12).default([]),
+      body: z.string().max(20000).default(""), customTags: z.array(z.string().trim().min(1).max(30)).max(20).default([]), relatedPersonIds: z.array(z.number().int().positive()).max(30).default([]), uploads: z.array(upload).max(12).default([]), removeAttachmentIds: z.array(z.number().int().positive()).max(100).default([]),
     }), response: z.object({ id: z.number() }),
     async handler(ctx, args) {
       const db = ctx.db<typeof schema>(); const now = new Date(); let eventId = args.id;
-      if (!isValidEventDate(args.dateValue, args.dateMode)) throw new Error("日期格式不正确，请重新选择");
-      let protectedDateValue = args.dateValue;
-      let protectedDateMode = args.dateMode;
+      let existing: { dateValue: string; dateMode: "exact" | "year" } | null = null;
       if (eventId) {
         const existingRows = await db.select().from(schema.events).where(eq(schema.events.id, eventId)).limit(1);
-        const existing = existingRows[0];
-        if (!existing || existing.personId !== args.personId) throw new Error("这段回忆已经不存在");
-        if (args.expectedUpdatedAt && existing.updatedAt.toISOString() !== args.expectedUpdatedAt) throw new Error("这段回忆刚刚在别处更新过，请重新打开后再修改");
-        const dateChanged = existing.dateValue !== args.dateValue || existing.dateMode !== args.dateMode;
-        if (dateChanged && !args.dateChangeConfirmed) {
-          protectedDateValue = existing.dateValue;
-          protectedDateMode = existing.dateMode;
-        }
+        const row = existingRows[0];
+        if (!row || row.personId !== args.personId) throw new Error("这段回忆已经不存在");
+        if (args.expectedUpdatedAt && row.updatedAt.toISOString() !== args.expectedUpdatedAt) throw new Error("这段回忆刚刚在别处更新过，请重新打开后再修改");
+        existing = row;
       }
-      const values = { personId: args.personId, chapterId: args.chapterId, title: args.title, dateValue: protectedDateValue, dateMode: protectedDateMode, location: args.location, significance: args.significance, body: args.body, customTags: JSON.stringify(args.customTags), updatedAt: now };
+      const resolvedDate = resolveSavedDate({ existing, dateValue: args.dateValue, dateMode: args.dateMode, dateChangeConfirmed: args.dateChangeConfirmed });
+      if (!resolvedDate.ok) throw new Error(resolvedDate.error);
+      const values = { personId: args.personId, chapterId: args.chapterId, title: args.title, dateValue: resolvedDate.dateValue, dateMode: resolvedDate.dateMode, location: args.location, significance: args.significance, body: args.body, customTags: JSON.stringify(args.customTags), updatedAt: now };
       if (eventId) { await db.update(schema.events).set(values).where(eq(schema.events.id, eventId)); await db.delete(schema.eventPeople).where(eq(schema.eventPeople.eventId, eventId)); }
       else { const inserted = await db.insert(schema.events).values({ ...values, createdAt: now }).returning({ id: schema.events.id }); const row = inserted[0]; if (!row) throw new Error("大事记未能保存，请重试"); eventId = row.id; }
-      if (args.relatedPersonIds.length) await db.insert(schema.eventPeople).values(args.relatedPersonIds.map((personId) => ({ eventId, personId })));
+      if (args.relatedPersonIds.length) await db.insert(schema.eventPeople).values(args.relatedPersonIds.map((personId: number) => ({ eventId, personId })));
       for (const item of args.uploads) {
         const extension = uploadExtension(item);
         const key = `events/${eventId}/${crypto.randomUUID()}.${extension}`;
         const mimeType = canonicalMimeType(item);
         await ctx.blobs.put(key, Buffer.from(item.dataBase64, "base64"), { contentType: mimeType });
         await db.insert(schema.attachments).values({ eventId, kind: item.kind, blobKey: key, mimeType, fileName: item.fileName });
+      }
+      const removeIds: number[] = [...new Set<number>(args.removeAttachmentIds)];
+      if (eventId && removeIds.length > 0) {
+        const doomed = await db.select().from(schema.attachments).where(and(eq(schema.attachments.eventId, eventId), inArray(schema.attachments.id, removeIds)));
+        if (doomed.length > 0) {
+          await db.delete(schema.attachments).where(inArray(schema.attachments.id, doomed.map((item) => item.id)));
+          await Promise.all(doomed.map((item) => deleteBlobQuietly(ctx.blobs, item.blobKey)));
+        }
       }
       ctx.invalidateQueries(); return { id: eventId };
     },
@@ -352,6 +384,114 @@ export const Actions = {
         await db.insert(schema.attachments).values({ eventId: event.id, kind: args.upload.kind, blobKey: key, mimeType, fileName: args.upload.fileName });
       }
       ctx.invalidateQueries(); return { id: event.id };
+    },
+  }),
+
+  importArchive: defineAction({
+    request: archiveFileSchema.extend({ replaceExisting: z.boolean().default(false) }),
+    response: z.object({
+      ok: z.literal(true),
+      peopleAdded: z.number().int().nonnegative(),
+      chaptersAdded: z.number().int().nonnegative(),
+      eventsAdded: z.number().int().nonnegative(),
+      mediaAdded: z.number().int().nonnegative(),
+      peopleReplaced: z.number().int().nonnegative(),
+    }),
+    async handler(ctx, args) {
+      const linkError = archiveLinkError(args);
+      if (linkError) throw new Error(linkError);
+      const db = ctx.db<typeof schema>();
+      const createdPersonIds: number[] = [];
+      const createdBlobKeys: string[] = [];
+      let chaptersAdded = 0;
+      let mediaAdded = 0;
+      try {
+        const personIdMap = new Map<number, number>();
+        for (const person of args.people) {
+          const created = await db.insert(schema.people).values({
+            name: person.name, relationship: person.relationship, birthDate: person.birthDate, bio: person.bio, isDemo: person.isDemo, updatedAt: new Date(),
+          }).returning({ id: schema.people.id });
+          const row = created[0];
+          if (!row) throw new Error("导入时有一位人物没有写入。");
+          personIdMap.set(person.id, row.id);
+          createdPersonIds.push(row.id);
+        }
+        const chapterIdMap = new Map<number, number>();
+        for (const chapter of args.chapters) {
+          const personId = personIdMap.get(chapter.personId);
+          if (!personId) throw new Error("导入文件里有章节找不到对应人物。");
+          const created = await db.insert(schema.chapters).values({ personId, title: chapter.title, sortOrder: chapter.sortOrder }).returning({ id: schema.chapters.id });
+          const row = created[0];
+          if (!row) throw new Error("导入时有一个章节没有写入。");
+          chapterIdMap.set(chapter.id, row.id);
+        }
+        chaptersAdded = chapterIdMap.size;
+        for (const event of args.events) {
+          const personId = personIdMap.get(event.personId);
+          if (!personId) throw new Error("导入文件里有大事记找不到对应人物。");
+          let chapterId: number | null = null;
+          if (event.chapterId != null) {
+            const mapped = chapterIdMap.get(event.chapterId);
+            if (!mapped) throw new Error("导入文件里有大事记找不到对应章节。");
+            chapterId = mapped;
+          }
+          const now = new Date();
+          const inserted = await db.insert(schema.events).values({
+            personId, chapterId, title: event.title, dateValue: event.dateValue, dateMode: event.dateMode, location: event.location,
+            significance: event.significance, body: event.body, customTags: JSON.stringify(event.customTags), createdAt: now, updatedAt: now,
+          }).returning({ id: schema.events.id });
+          const row = inserted[0];
+          if (!row) throw new Error("导入时有一件大事记没有写入。");
+          const relatedRows: { eventId: number; personId: number }[] = [];
+          const seenRelated = new Set<number>();
+          for (const relatedId of event.relatedPersonIds) {
+            if (relatedId === event.personId || seenRelated.has(relatedId)) continue;
+            seenRelated.add(relatedId);
+            const relatedPersonId = personIdMap.get(relatedId);
+            if (!relatedPersonId) throw new Error("导入文件里有相关人物无法对应。");
+            relatedRows.push({ eventId: row.id, personId: relatedPersonId });
+          }
+          if (relatedRows.length > 0) await db.insert(schema.eventPeople).values(relatedRows);
+          for (const item of event.attachments) {
+            const bytes = Buffer.from(item.dataBase64, "base64");
+            if (bytes.byteLength === 0) throw new Error("导入文件里有一段媒体没有内容。");
+            const mimeType = canonicalMimeType(item);
+            const key = `events/${row.id}/${crypto.randomUUID()}.${uploadExtension(item)}`;
+            await ctx.blobs.put(key, bytes, { contentType: mimeType });
+            createdBlobKeys.push(key);
+            await db.insert(schema.attachments).values({ eventId: row.id, kind: item.kind, blobKey: key, mimeType, fileName: item.fileName });
+            mediaAdded += 1;
+          }
+        }
+      } catch (error) {
+        if (createdPersonIds.length > 0) {
+          try { await db.delete(schema.people).where(inArray(schema.people.id, createdPersonIds)); } catch { /* The import error below is what the user sees. */ }
+        }
+        await Promise.all(createdBlobKeys.map((key) => deleteBlobQuietly(ctx.blobs, key)));
+        if (error instanceof Error && error.message.startsWith("导入")) throw error;
+        throw new Error("导入没有完成，已撤回这次写入。请重试。");
+      }
+
+      let peopleReplaced = 0;
+      if (args.replaceExisting) {
+        try {
+          const currentPeople = await db.select({ id: schema.people.id, isDemo: schema.people.isDemo }).from(schema.people);
+          const oldIds = peopleIdsToReplace(currentPeople, true, createdPersonIds);
+          peopleReplaced = oldIds.length;
+          if (oldIds.length > 0) {
+            const oldEvents = await db.select({ id: schema.events.id }).from(schema.events).where(inArray(schema.events.personId, oldIds));
+            const oldEventIds = oldEvents.map((event) => event.id);
+            const oldMedia = oldEventIds.length === 0 ? [] : await db.select({ blobKey: schema.attachments.blobKey }).from(schema.attachments).where(inArray(schema.attachments.eventId, oldEventIds));
+            await db.delete(schema.people).where(inArray(schema.people.id, oldIds));
+            await Promise.all(oldMedia.map((item) => deleteBlobQuietly(ctx.blobs, item.blobKey)));
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message.startsWith("导入")) throw error;
+          throw new Error("导入已经写入新记录，但原有人物没有移除。请再试一次替换导入。");
+        }
+      }
+      ctx.invalidateQueries();
+      return { ok: true as const, peopleAdded: createdPersonIds.length, chaptersAdded, eventsAdded: args.events.length, mediaAdded, peopleReplaced };
     },
   }),
 } satisfies ActionsModule;
