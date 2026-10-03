@@ -1,0 +1,17 @@
+{
+  "name": "@hatch/space-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.tsx",
+    "./build": "./src/build.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.100.10",
+    "drizzle-orm": "0.45.2",
+    "react": "19.2.5",
+    "zod": "4.4.3"
+  }
+}
