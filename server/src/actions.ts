@@ -1,6 +1,7 @@
-import { defineAction, z, type ActionsModule } from "@hatch/space-sdk";
+import { defineAction, z, type ActionContext, type ActionsModule } from "@hatch/space-sdk";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { archiveFileSchema, archiveLinkError, isValidEventDate, peopleIdsToReplace, resolveSavedDate } from "./archive-file";
+import { isImageGenerationUnavailable, placeholderPhoto, type DemoArt } from "./demo-photos";
 import * as schema from "./schema";
 
 const significance = z.enum(["美好", "不美好", "里程碑", "转折", "日常"]);
@@ -66,6 +67,19 @@ function uploadExtension(item: z.infer<typeof upload>): string {
 
 async function deleteBlobQuietly(blobs: { delete: (key: string) => Promise<unknown> }, key: string) {
   try { await blobs.delete(key); } catch { /* The record no longer points at this blob. */ }
+}
+
+async function demoPhoto(ctx: Pick<ActionContext, "blobs" | "tool">, plan: { title: string; prompt: string; art: DemoArt }): Promise<{ blobKey: string; contentType: string; fileName: string }> {
+  try {
+    const media = await ctx.tool.generate_media(plan.prompt, { orientation: "landscape" });
+    return { blobKey: media.blobKey, contentType: media.contentType, fileName: `${plan.title}-示例插图.jpg` };
+  } catch (error) {
+    if (!isImageGenerationUnavailable(error)) throw error;
+    const placeholder = placeholderPhoto(plan.art);
+    const blobKey = `demo/${plan.art}/${crypto.randomUUID()}.${placeholder.extension}`;
+    await ctx.blobs.put(blobKey, placeholder.bytes, { contentType: placeholder.contentType });
+    return { blobKey, contentType: placeholder.contentType, fileName: `${plan.title}-示例插图.${placeholder.extension}` };
+  }
 }
 
 export const Actions = {
@@ -216,10 +230,10 @@ export const Actions = {
       const demoEvents = await db.select({ id: schema.events.id, title: schema.events.title }).from(schema.events).where(inArray(schema.events.personId, personIds));
       const existing = await db.select({ eventId: schema.attachments.eventId }).from(schema.attachments);
       const eventIdsWithMedia = new Set(existing.map((item) => item.eventId));
-      const mediaPlans = [
-        { title: "带父亲第一次看海", prompt: "一幅高分辨率写实插画，虚构的成年中国父子背影在青岛海边缓慢散步，初秋傍晚，克制温暖的胶片色调，人物不看镜头，无文字、无标志，横向构图" },
-        { title: "在海边求婚", prompt: "一幅高分辨率写实插画，虚构情侣在厦门退潮后的沙滩上求婚，海风和暮色，含蓄温柔的胶片色调，人物不看镜头，无文字、无标志，横向构图" },
-        { title: "退休后的第一趟远行", prompt: "一幅高分辨率写实插画，虚构的中国退休木匠清晨独自走在西安古城墙上，秋日薄雾，安静克制的纪实胶片色调，人物不看镜头，无文字、无标志，横向构图" },
+      const mediaPlans: { title: string; prompt: string; art: DemoArt }[] = [
+        { title: "带父亲第一次看海", art: "qingdao-sea", prompt: "一幅高分辨率写实插画，虚构的成年中国父子背影在青岛海边缓慢散步，初秋傍晚，克制温暖的胶片色调，人物不看镜头，无文字、无标志，横向构图" },
+        { title: "在海边求婚", art: "xiamen-proposal", prompt: "一幅高分辨率写实插画，虚构情侣在厦门退潮后的沙滩上求婚，海风和暮色，含蓄温柔的胶片色调，人物不看镜头，无文字、无标志，横向构图" },
+        { title: "退休后的第一趟远行", art: "xian-wall", prompt: "一幅高分辨率写实插画，虚构的中国退休木匠清晨独自走在西安古城墙上，秋日薄雾，安静克制的纪实胶片色调，人物不看镜头，无文字、无标志，横向构图" },
       ];
       let added = 0; let skipped = 0;
       const created: { id: number; blobKey: string }[] = [];
@@ -227,9 +241,9 @@ export const Actions = {
       for (const plan of mediaPlans) {
         const event = demoEvents.find((item) => item.title === plan.title);
         if (!event || eventIdsWithMedia.has(event.id)) { skipped += 1; continue; }
-        const media = await ctx.tool.generate_media(plan.prompt, { orientation: "landscape" });
+        const media = await demoPhoto(ctx, plan);
         try {
-          const inserted = await db.insert(schema.attachments).values({ eventId: event.id, kind: "photo", blobKey: media.blobKey, mimeType: media.contentType, fileName: `${plan.title}-示例插图.jpg` }).returning({ id: schema.attachments.id });
+          const inserted = await db.insert(schema.attachments).values({ eventId: event.id, kind: "photo", blobKey: media.blobKey, mimeType: media.contentType, fileName: media.fileName }).returning({ id: schema.attachments.id });
           const row = inserted[0];
           if (!row) throw new Error("示例照片没有写入，请重试。");
           created.push({ id: row.id, blobKey: media.blobKey });

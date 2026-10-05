@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" data-scene="xian-wall">
+  <rect width="800" height="800" fill="#f3eee6"/>
+  <rect x="36" y="36" width="728" height="728" fill="none" stroke="#c9b8a4" stroke-width="1"/>
+  <rect x="0" y="0" width="800" height="800" fill="#efe6da"/>
+  <ellipse cx="400" cy="210" rx="260" ry="70" fill="#e4d9cb" opacity=".9"/>
+  <path d="M40 430h720v46H40Z" fill="#cbbba6"/>
+  <path d="M70 250h660v188H70Z" fill="#d7c7b0"/>
+  <path d="M70 250h660v18H70Z" fill="#c3b29c"/>
+  <g fill="#b7a58e">
+    <rect x="92" y="214" width="36" height="36"/>
+    <rect x="168" y="214" width="36" height="36"/>
+    <rect x="244" y="214" width="36" height="36"/>
+    <rect x="320" y="214" width="36" height="36"/>
+    <rect x="396" y="214" width="36" height="36"/>
+    <rect x="472" y="214" width="36" height="36"/>
+    <rect x="548" y="214" width="36" height="36"/>
+    <rect x="624" y="214" width="36" height="36"/>
+  </g>
+  <path d="M0 476h800v324H0Z" fill="#e6d8c4"/>
+  <path d="M80 500h640v16H80Z" fill="#cfc0aa"/>
+  <g fill="#3c342e">
+    <circle cx="250" cy="392" r="16"/>
+  </g>
+  <path d="M226 412h48l8 78h-64Z" fill="#6e3f30"/>
+  <path d="M238 426h24l-2 64h-20Z" fill="#8f5340"/>
+  <text x="64" y="756" fill="#6e3f30" font-family="Songti SC, Noto Serif SC, WenQuanYi Micro Hei, Droid Sans Fallback, serif" font-size="26" letter-spacing="3">‰ · Î™h</text>
+</svg>
