@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createLocalContext, type ActionContext } from "@hatch/space-sdk";
 import { Actions } from "./actions";
+import { placeholderPhoto, type DemoArt } from "./demo-photos";
 
 const migrationsDir = resolve(import.meta.dir, "../../drizzle");
 
@@ -16,6 +17,22 @@ function localContext(root: string): ActionContext {
 }
 
 describe("示例照片", () => {
+  test("placeholder drawings are valid captioned images", () => {
+    const captions: Record<DemoArt, string> = {
+      "qingdao-sea": "青岛",
+      "xiamen-proposal": "厦门",
+      "xian-wall": "西安",
+    };
+    for (const art of Object.keys(captions) as DemoArt[]) {
+      const photo = placeholderPhoto(art);
+      const svg = new TextDecoder("utf-8", { fatal: true }).decode(photo.bytes);
+      expect(photo.contentType).toBe("image/svg+xml");
+      expect(svg).toContain(`data-scene="${art}"`);
+      expect(svg).toContain(captions[art]);
+      expect(svg.trimEnd().endsWith("</svg>")).toBe(true);
+    }
+  });
+
   test("uses generate_media when image generation is available", async () => {
     const root = mkdtempSync(join(tmpdir(), "life-generated-"));
     const ctx = localContext(root);
