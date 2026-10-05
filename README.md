@@ -20,7 +20,7 @@ bun run typecheck
 bun run build
 ```
 
-> `@hatch/space-sdk` 来自 Muse Web Artifact 运行环境。若在普通本地环境审查，请把它视为平台依赖；完整构建需要对应 SDK。
+`@hatch/space-sdk` 在仓库的 `vendor/hatch-space-sdk`。它提供本应用实际用到的类型、动作客户端和构建入口。档案数据使用本地 SQLite 与 `blobs/`；`generate_media` 仍是 Hatch 才有的能力，调用时会直接报错。浏览器里的 `./actions` 需要平台服务，仓库本身不启动它。
 
 ## 数据边界
 
