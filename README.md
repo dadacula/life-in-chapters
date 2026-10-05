@@ -8,19 +8,28 @@
 - `server/src/actions.ts`：类型安全的服务端动作
 - `server/src/schema.ts`：Drizzle 数据模型
 - `drizzle/`：SQLite 迁移
+- `vendor/hatch-space-sdk`：本地 SQLite、Blob 与动作客户端
 - `space.json`：Muse Web Artifact 配置
 
-## 本地检查
+## 本地运行
 
-本项目使用 Bun：
+安装 Bun 之后：
 
 ```bash
+git clone https://github.com/dadacula/life-in-chapters.git
+cd life-in-chapters
 bun install
+bun run dev
+```
+
+打开终端打印的地址。默认是 http://localhost:3000。`bun run dev` 会先构建页面，再在本机响应 `./actions`。人物和大事记写在 `app.db`，照片和音视频写在 `blobs/`。示例人生里的照片仍会失败，并说明这里没有图像生成。
+
+类型和打包：
+
+```bash
 bun run typecheck
 bun run build
 ```
-
-`@hatch/space-sdk` 在仓库的 `vendor/hatch-space-sdk`。它提供本应用实际用到的类型、动作客户端和构建入口。档案数据使用本地 SQLite 与 `blobs/`；`generate_media` 仍是 Hatch 才有的能力，调用时会直接报错。浏览器里的 `./actions` 需要平台服务，仓库本身不启动它。
 
 ## 数据边界
 
