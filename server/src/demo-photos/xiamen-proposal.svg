@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" data-scene="xiamen-proposal">
+  <rect width="800" height="800" fill="#f4efe6"/>
+  
+  <rect width="800" height="500" fill="#f8e7dc"/>
+  <ellipse cx="170" cy="240" rx="150" ry="56" fill="#f3d2c4"/>
+  <circle cx="560" cy="180" r="62" fill="#e7b39a"/>
+  <circle cx="560" cy="180" r="34" fill="#f8e6da"/>
+  <path d="M0 470C160 430 300 510 480 468C660 426 720 490 800 456V690H0Z" fill="#7f8f96"/>
+  <path d="M0 548C200 516 340 580 540 546C690 518 740 568 800 540V690H0Z" fill="#667984"/>
+  <path d="M0 668C240 640 460 700 800 656V800H0Z" fill="#ead8c2"/>
+  <path d="M48 720C180 704 250 742 390 722" fill="none" stroke="#d5c3aa" stroke-width="2"/>
+  <path d="M460 748C590 732 680 762 760 742" fill="none" stroke="#d5c3aa" stroke-width="2"/>
+  <g fill="#3c342e">
+    <circle cx="300" cy="612" r="18"/>
+    <circle cx="468" cy="546" r="22"/>
+  </g>
+  <path d="M274 632h52l4 70h-64Z" fill="#4d4038"/>
+  <path d="M436 572h64l14 146h-92Z" fill="#8f5340"/>
+  <path d="M454 590h30l-4 128h-24Z" fill="#a86852"/>
+  <circle cx="338" cy="704" r="8" fill="none" stroke="#8f5340" stroke-width="3"/>
+
+  <rect x="28" y="28" width="744" height="744" fill="none" stroke="#c9b8a4" stroke-width="1"/>
+  <text x="64" y="748" fill="#6e3f30" font-family="Songti SC, Noto Serif SC, WenQuanYi Micro Hei, Droid Sans Fallback, serif" font-size="28" letter-spacing="4">厦门 · 退潮求婚</text>
+</svg>

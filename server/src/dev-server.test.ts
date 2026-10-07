@@ -95,7 +95,7 @@ describe("本地档案服务", () => {
     }
   });
 
-  test("keeps image generation as a Hatch error", async () => {
+  test("keeps the demo and attaches placeholder photos when image generation is unavailable", async () => {
     const root = mkdtempSync(join(tmpdir(), "life-demo-"));
     const server = startLocalServer({
       port: 0,
@@ -108,11 +108,41 @@ describe("本地档案服务", () => {
     try {
       const seeded = await post(base, "seedMockData", {});
       expect(seeded.status).toBe(200);
+      const seededBody = await seeded.json() as { added: boolean; peopleAdded: number; eventsAdded: number };
+      expect(seededBody.added).toBe(true);
+      expect(seededBody.peopleAdded).toBe(2);
+      expect(seededBody.eventsAdded).toBeGreaterThan(0);
+
       const media = await post(base, "ensureDemoMedia", {});
-      expect(media.ok).toBe(false);
-      expect(await media.text()).toBe("示例照片需要 Hatch 的 generate_media。这个环境没有图像生成。");
+      expect(media.status).toBe(200);
+      const mediaBody = await media.json() as { added: number; skipped: number };
+      expect(mediaBody.added).toBe(3);
+      expect(mediaBody.skipped).toBe(0);
+
+      const archiveResponse = await post(base, "getArchive", {});
+      expect(archiveResponse.status).toBe(200);
+      const archive = await archiveResponse.json() as {
+        people: Array<{ name: string; isDemo: boolean }>;
+        events: Array<{ title: string; attachments: Array<{ kind: string; mimeType: string; fileName: string; url: string }> }>;
+      };
+      expect(archive.people.map((person) => person.name).sort()).toEqual(["林建国", "林默"]);
+      expect(archive.people.every((person) => person.isDemo)).toBe(true);
+      const pictured = ["带父亲第一次看海", "在海边求婚", "退休后的第一趟远行"];
+      for (const title of pictured) {
+        const event = archive.events.find((item) => item.title === title);
+        expect(event?.attachments).toHaveLength(1);
+        const photo = event?.attachments[0];
+        expect(photo?.kind).toBe("photo");
+        expect(photo?.mimeType).toBe("image/svg+xml");
+        expect(photo?.fileName).toBe(`${title}-示例插图.svg`);
+        expect(photo?.url.startsWith("data:image/svg+xml;base64,")).toBe(true);
+        const svg = Buffer.from(photo?.url.split(",")[1] ?? "", "base64").toString("utf8");
+        expect(svg).toContain("<svg");
+        expect(svg).toContain("data-scene=");
+      }
+      expect(archive.events.filter((event) => !pictured.includes(event.title)).every((event) => event.attachments.length === 0)).toBe(true);
       const names = readdirSync(join(root, "blobs"), { recursive: true }).map(String);
-      expect(names.some((name) => name.endsWith(".jpg") || name.endsWith(".png"))).toBe(false);
+      expect(names.filter((name) => name.endsWith(".svg"))).toHaveLength(3);
     } finally {
       server.stop();
       rmSync(root, { recursive: true, force: true });
